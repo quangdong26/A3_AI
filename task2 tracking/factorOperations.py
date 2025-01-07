@@ -15,6 +15,7 @@ from typing import List
 from bayesNet import Factor
 import functools
 from util import raiseNotDefined
+from functools import reduce
 
 def joinFactorsByVariableWithCallTracking(callTrackingList=None):
 
@@ -102,7 +103,54 @@ def joinFactors(factors: List[Factor]):
 
 
     "*** YOUR CODE HERE ***"
-    raiseNotDefined()
+    # Convert to a list so we can do factors[0], len(factors), etc.
+    factors = list(factors)
+
+    # Handle the case where factors might be an empty list:
+    if len(factors) == 0:
+        # Possibly return something (like an empty Factor) or raise an error.
+        # For many Q2 tests, you won't get an empty list, but let's be safe:
+        raise ValueError("joinFactors was called with an empty list of factors.")
+
+    # typecheck portion (unchanged)
+    setsOfUnconditioned = [set(factor.unconditionedVariables()) for factor in factors]
+    if len(factors) > 1:
+        intersect = reduce(lambda x, y: x & y, setsOfUnconditioned)
+        if len(intersect) > 0:
+            print("Factor failed joinFactors typecheck: ", factor)
+            raise ValueError(
+                "unconditionedVariables can only appear in one factor.\n"
+                + "unconditionedVariables: " + str(intersect)
+                + "\nappear in more than one input factor.\n"
+                + "Input factors:\n"
+                + "\n".join(map(str, factors))
+            )
+
+    # gather unconditioned/conditioned
+    joinedUnconditioned = set()
+    joinedConditioned = set()
+    variableDomainsDict = factors[0].variableDomainsDict()
+
+    for factor in factors:
+        joinedUnconditioned |= set(factor.unconditionedVariables())
+        joinedConditioned |= set(factor.conditionedVariables())
+
+    for var in joinedUnconditioned:
+        if var in joinedConditioned:
+            joinedConditioned.remove(var)
+
+    # construct new factor
+    joinedFactor = Factor(joinedUnconditioned, joinedConditioned, variableDomainsDict)
+
+    # multiply probabilities
+    for assignment in joinedFactor.getAllPossibleAssignmentDicts():
+        productValue = 1.0
+        for factor in factors:
+            productValue *= factor.getProbability(assignment)
+        joinedFactor.setProbability(assignment, productValue)
+
+    return joinedFactor
+    #raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
 ########### ########### ###########
@@ -153,7 +201,20 @@ def eliminateWithCallTracking(callTrackingList=None):
                     "unconditionedVariables: " + str(factor.unconditionedVariables()))
 
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        reducedUnconditionedVariables = factor.unconditionedVariables()
+        reducedUnconditionedVariables.remove(eliminationVariable)
+        reducedFactor = Factor(reducedUnconditionedVariables, factor.conditionedVariables(), factor.variableDomainsDict())
+
+        for reducedAssignment in reducedFactor.getAllPossibleAssignmentDicts():
+            prob = 0
+            for elimVarVal in factor.variableDomainsDict()[eliminationVariable]:
+                fullAssignment = reducedAssignment.copy()
+                fullAssignment[eliminationVariable] = elimVarVal
+                prob += factor.getProbability(fullAssignment)
+            reducedFactor.setProbability(reducedAssignment, prob)
+
+        return reducedFactor
+        #raiseNotDefined()
         "*** END YOUR CODE HERE ***"
 
     return eliminate

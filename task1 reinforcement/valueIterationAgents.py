@@ -65,6 +65,29 @@ class ValueIterationAgent(ValueEstimationAgent):
           value iteration, V_k+1(...) depends on V_k(...)'s.
         """
         "*** YOUR CODE HERE ***"
+        # k iterations
+        for _ in range(self.iterations):
+            update_values_dict = self.values.copy()
+
+            # get Q_values for each possible s_prime
+            for state in self.mdp.getStates():
+                Q_values = [float('-inf')]
+                terminal_state = self.mdp.isTerminal(state)  # boolean
+
+                # Terminal states have 0 value.
+                if terminal_state:
+                    update_values_dict[state] = 0
+
+                else:
+                    legal_actions = self.mdp.getPossibleActions(state)
+
+                    for action in legal_actions:
+                        Q_values.append(self.getQValue(state, action))
+
+                    # update value function at state s to largest Q_value
+                    update_values_dict[state] = max(Q_values)
+
+            self.values = update_values_dict
 
     def getValue(self, state):
         """
@@ -78,6 +101,15 @@ class ValueIterationAgent(ValueEstimationAgent):
           value function stored in self.values.
         """
         "*** YOUR CODE HERE ***"
+        possible_next_states = self.mdp.getTransitionStatesAndProbs(state, action)  # [(s_prime, prob), ...]
+        value_utilities = []
+
+        for s_prime, T in possible_next_states:
+            R = self.mdp.getReward(state, action, s_prime)
+            gamma_V = self.discount * self.values[s_prime]
+            value_utilities.append(T * (R + gamma_V))
+
+        return sum(value_utilities)
         util.raiseNotDefined()
 
     def computeActionFromValues(self, state):
@@ -90,6 +122,19 @@ class ValueIterationAgent(ValueEstimationAgent):
           terminal state, you should return None.
         """
         "*** YOUR CODE HERE ***"
+        legal_actions = self.mdp.getPossibleActions(state)
+
+        if len(legal_actions) == 0:
+            return None
+
+        actions_qvals = []  # [(action, qval) ... ]
+
+        for action in legal_actions:
+            qval = self.getQValue(state, action)
+            actions_qvals.append((action, qval))
+
+        action_with_best_qval = max(actions_qvals, key=lambda x: x[1])[0]
+        return action_with_best_qval
         util.raiseNotDefined()
 
     def getPolicy(self, state):

@@ -56,12 +56,42 @@ def constructBayesNet(gameState: hunters.GameState):
     Y_RANGE = gameState.getWalls().height
     MAX_NOISE = 7
 
-    variables = []
-    edges = []
-    variableDomainsDict = {}
+    # variables = []
+    # edges = []
+    # variableDomainsDict = {}
 
     "*** YOUR CODE HERE ***"
-    raiseNotDefined()
+    # 1) List out all variables
+    variables = [PAC, GHOST0, GHOST1, OBS0, OBS1]
+
+    # 2) Create the edges (from -> to)
+    edges = [
+        (PAC, OBS0),
+        (GHOST0, OBS0),
+        (PAC, OBS1),
+        (GHOST1, OBS1)
+    ]
+
+    # 3) Populate domain information for each variable
+
+    #    3a) For Pacman, Ghost0, Ghost1: all (x, y) positions in the grid
+    allPositions = []
+    for x in range(X_RANGE):
+        for y in range(Y_RANGE):
+            allPositions.append((x, y))
+
+    #    3b) For Observations, from 0 to max possible distance + noise
+    maxManhattanDist = (X_RANGE - 1) + (Y_RANGE - 1)
+    obsDomain = list(range(maxManhattanDist + MAX_NOISE + 1))
+
+    variableDomainsDict = {
+        PAC: allPositions,
+        GHOST0: allPositions,
+        GHOST1: allPositions,
+        OBS0: obsDomain,
+        OBS1: obsDomain
+    }
+    #raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
     net = bn.constructEmptyBayesNet(variables, edges, variableDomainsDict)
@@ -182,6 +212,41 @@ def inferenceByVariableEliminationWithCallTracking(callTrackingList=None):
             eliminationOrder = sorted(list(eliminationVariables))
 
         "*** YOUR CODE HERE ***"
+        # Provided "helper" calls for autograder
+        joinFactorsByVariable = joinFactorsByVariableWithCallTracking(callTrackingList)
+        eliminate = eliminateWithCallTracking(callTrackingList)
+
+        # 1) Gather all initial factors, specialized by evidence
+        currentFactors = bayesNet.getAllCPTsWithEvidence(evidenceDict)
+
+        # 2) For each var in eliminationOrder, do "joinFactorsByVariable" then "eliminate"
+        for var in eliminationOrder:
+            # (a) Separate out factors that contain var from those that don’t
+            factorsNotToJoin, joinedFactor = joinFactorsByVariable(currentFactors, var)
+
+            # (b) Check how many unconditioned variables are in joinedFactor
+            uncondVars = joinedFactor.unconditionedVariables()
+            if var in uncondVars:
+                if len(uncondVars) == 1:
+                    # Per project specs: discard this factor, do NOT keep
+                    # it, because eliminating var from the only unconditioned
+                    # variable leaves a constant factor => discard
+                    joinedFactor = None
+                else:
+                    # We can safely eliminate var
+                    joinedFactor = eliminate(joinedFactor, var)
+
+            # (c) Reassemble the factor list
+            if joinedFactor is not None:
+                currentFactors = factorsNotToJoin + [joinedFactor]
+            else:
+                currentFactors = factorsNotToJoin
+
+        # 3) Join all remaining factors
+        finalJoint = joinFactors(currentFactors)
+
+        # 4) Normalize result so that it sums to 1
+        return normalize(finalJoint)
         raiseNotDefined()
         "*** END YOUR CODE HERE ***"
 
